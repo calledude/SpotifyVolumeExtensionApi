@@ -14,7 +14,7 @@ namespace SpotifyVolumeExtensionApi.Controllers
 		private readonly IHttpClientFactory _httpClientFactory;
 		private static readonly string _clientSecret = Environment.GetEnvironmentVariable("CLIENT_SECRET");
 		private static readonly string _clientId = Environment.GetEnvironmentVariable("CLIENT_ID");
-		private const string _redirectUri = "https://spotifyvolumeextension.azurewebsites.net";
+		private const string _redirectUri = "https://spotifyvolumeextensionwin.azurewebsites.net";
 
 		public SpotifyAuthController(IHttpClientFactory httpClientFactory)
 		{
