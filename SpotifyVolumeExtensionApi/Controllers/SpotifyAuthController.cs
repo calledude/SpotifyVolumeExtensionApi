@@ -5,84 +5,83 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace SpotifyVolumeExtensionApi.Controllers
+namespace SpotifyVolumeExtensionApi.Controllers;
+
+[ApiController]
+[Route("~/")]
+public class SpotifyAuthController : ControllerBase
 {
-	[ApiController]
-	[Route("~/")]
-	public class SpotifyAuthController : ControllerBase
+	private readonly IHttpClientFactory _httpClientFactory;
+	private static readonly string _clientSecret = Environment.GetEnvironmentVariable("CLIENT_SECRET");
+	private static readonly string _clientId = Environment.GetEnvironmentVariable("CLIENT_ID");
+	private const string _redirectUri = "https://spotifyvolumeextension.azurewebsites.net";
+
+	public SpotifyAuthController(IHttpClientFactory httpClientFactory)
 	{
-		private readonly IHttpClientFactory _httpClientFactory;
-		private static readonly string _clientSecret = Environment.GetEnvironmentVariable("CLIENT_SECRET");
-		private static readonly string _clientId = Environment.GetEnvironmentVariable("CLIENT_ID");
-		private const string _redirectUri = "https://spotifyvolumeextension.azurewebsites.net";
+		_httpClientFactory = httpClientFactory;
+	}
 
-		public SpotifyAuthController(IHttpClientFactory httpClientFactory)
+	[HttpGet]
+	public IActionResult SpotifyAuthorizationCallback([FromQuery] string code, [FromQuery] string state)
+	{
+		var query = new Dictionary<string, string>()
 		{
-			_httpClientFactory = httpClientFactory;
-		}
+			{ "code", code },
+			{ "state", state }
+		};
 
-		[HttpGet]
-		public IActionResult SpotifyAuthorizationCallback([FromQuery] string code, [FromQuery] string state)
+		var queryString = QueryHelpers.AddQueryString("http://localhost:4002/auth", query);
+		return Redirect(queryString);
+	}
+
+	[HttpGet("authorize")]
+	public IActionResult Authorize(
+		[FromQuery] string response_type,
+		[FromQuery] string state,
+		[FromQuery] string scope,
+		[FromQuery] string show_dialog)
+	{
+		var query = new Dictionary<string, string>()
 		{
-			var query = new Dictionary<string, string>()
-			{
-				{ "code", code },
-				{ "state", state }
-			};
+			{ "client_id", _clientId },
+			{ "redirect_uri", _redirectUri },
+			{ "response_type", response_type },
+			{ "scope", scope },
+			{ "state", state },
+			{ "show_dialog", show_dialog }
+		};
 
-			var queryString = QueryHelpers.AddQueryString("http://localhost:4002/auth", query);
-			return Redirect(queryString);
-		}
+		var queryString = QueryHelpers.AddQueryString("https://accounts.spotify.com/authorize/", query);
+		return Redirect(queryString);
+	}
 
-		[HttpGet("authorize")]
-		public IActionResult Authorize(
-			[FromQuery] string response_type,
-			[FromQuery] string state,
-			[FromQuery] string scope,
-			[FromQuery] string show_dialog)
+	[HttpPost("authorize")]
+	public async Task<string> Authorize(
+		[RequiredFromForm] string grant_type,
+		[RequiredFromForm] string code) => await GetToken(grant_type, code);
+
+	[HttpPost("refresh")]
+	public async Task<string> RefreshToken(
+		[RequiredFromForm] string grant_type,
+		[RequiredFromForm] string refresh_token) => await GetToken(grant_type, refreshToken: refresh_token);
+
+	private async Task<string> GetToken(string grantType, string code = "", string refreshToken = "")
+	{
+		var client = _httpClientFactory.CreateClient();
+
+		var query = new Dictionary<string, string>()
 		{
-			var query = new Dictionary<string, string>()
-			{
-				{ "client_id", _clientId },
-				{ "redirect_uri", _redirectUri },
-				{ "response_type", response_type },
-				{ "scope", scope },
-				{ "state", state },
-				{ "show_dialog", show_dialog }
-			};
+			{ "grant_type", grantType },
+			{ "redirect_uri", _redirectUri },
+			{ "code", code },
+			{ "client_id", _clientId },
+			{ "client_secret", _clientSecret },
+			{ "refresh_token", refreshToken }
+		};
 
-			var queryString = QueryHelpers.AddQueryString("https://accounts.spotify.com/authorize/", query);
-			return Redirect(queryString);
-		}
+		var content = new FormUrlEncodedContent(query);
+		var response = await client.PostAsync("https://accounts.spotify.com/api/token", content);
 
-		[HttpPost("authorize")]
-		public async Task<string> Authorize(
-			[RequiredFromForm] string grant_type,
-			[RequiredFromForm] string code) => await GetToken(grant_type, code);
-
-		[HttpPost("refresh")]
-		public async Task<string> RefreshToken(
-			[RequiredFromForm] string grant_type,
-			[RequiredFromForm] string refresh_token) => await GetToken(grant_type, refreshToken: refresh_token);
-
-		private async Task<string> GetToken(string grantType, string code = "", string refreshToken = "")
-		{
-			var client = _httpClientFactory.CreateClient();
-
-			var query = new Dictionary<string, string>()
-			{
-				{ "grant_type", grantType },
-				{ "redirect_uri", _redirectUri },
-				{ "code", code },
-				{ "client_id", _clientId },
-				{ "client_secret", _clientSecret },
-				{ "refresh_token", refreshToken }
-			};
-
-			var content = new FormUrlEncodedContent(query);
-			var response = await client.PostAsync("https://accounts.spotify.com/api/token", content);
-
-			return await response.Content.ReadAsStringAsync();
-		}
+		return await response.Content.ReadAsStringAsync();
 	}
 }
