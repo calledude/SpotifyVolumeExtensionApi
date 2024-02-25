@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Net.Mime;
 using System.Threading.Tasks;
 
 namespace SpotifyVolumeExtensionApi.Controllers;
@@ -55,15 +56,13 @@ public class SpotifyAuthController : ControllerBase
 		return Redirect(queryString);
 	}
 
-	[HttpPost("authorize")]
-	public async Task<string> Authorize(
-		[RequiredFromForm] string grant_type,
-		[RequiredFromForm] string code) => await GetToken(grant_type, code);
+    [HttpPost("swap")]
+    public async Task<IActionResult> Swap([RequiredFromForm] string code)
+        => Content(await GetToken("authorization_code", code: code), MediaTypeNames.Application.Json);
 
 	[HttpPost("refresh")]
-	public async Task<string> RefreshToken(
-		[RequiredFromForm] string grant_type,
-		[RequiredFromForm] string refresh_token) => await GetToken(grant_type, refreshToken: refresh_token);
+    public async Task<IActionResult> RefreshToken([RequiredFromForm] string refresh_token)
+        => Content(await GetToken("refresh_token", refreshToken: refresh_token), MediaTypeNames.Application.Json);
 
 	private async Task<string> GetToken(string grantType, string code = "", string refreshToken = "")
 	{
